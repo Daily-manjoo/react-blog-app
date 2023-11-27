@@ -8,20 +8,32 @@ import ProfilePage from 'pages/profile';
 import LoginPage from 'pages/login';
 import SignupPage from 'pages/signup';
 
+interface RouterProps {
+  isAuthenticated: boolean;
+}
 
-export default function Router() {
+export default function Router({ isAuthenticated }: RouterProps) {
   return (
     <>
     <Routes>
+      {isAuthenticated ? (
+        <>
       <Route path='/' element={<Home />} />
       <Route path='/posts' element={<PostList />} />
       <Route path='/posts/:id' element={<PostDetail />} />
       <Route path='/posts/new' element={<PostNew />} />
       <Route path='/posts/edit/:id' element={<PostEdit />} />
       <Route path='/profile' element={<ProfilePage />} />
-      <Route path='/profile' element={<LoginPage />} />
-      <Route path='/profile' element={<SignupPage />} />
       <Route path='*' element={<Navigate replace to= "/" />} />
+        </>
+      ): (
+        <>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path='*' element={<Navigate replace to= "/login" />} />
+        </>
+      )}
+      
     </Routes>
     </>
   );
