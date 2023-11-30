@@ -1,15 +1,14 @@
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db } from "firebaseApp";
 import AuthContext from "context/AuthContext";
 import { toast } from "react-toastify";
 
 interface PostListProps {
     hasNavigation?: boolean;
+    defaultTab?: TabType;
 }
-
-type TabType = "all" | "my";
 
 export interface PostProps {
     id?: string;
@@ -17,20 +16,45 @@ export interface PostProps {
     email: string;
     summary: string;
     content: string;
-    createAt: string;
+    createdAt: string;
     updatedAt?: string;
     uid: string;
+    category?: CategoryType;
 }
+type TabType = "all" | "my";
 
-export default function PostList({ hasNavigation = true}: PostListProps){ //profile페이지에선 안보이게
-    const [activeTab, setActiveTab] = useState<TabType>("all");
+export type CategoryType = "Frontend" | "Backend" | "Web" | "Native";
+export const CATEGORIES: CategoryType[] = [
+    "Frontend",
+    "Backend",
+    "Web",
+    "Native",
+];
+
+export default function PostList({ hasNavigation = true, defaultTab = "all" }: PostListProps){ //profile페이지에선 안보이게
+    const [activeTab, setActiveTab] = useState<TabType | CategoryType>(defaultTab);
     const [posts, setPosts] = useState<PostProps[]>([]);
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
 
     const getPosts = async() => {
-        const datas = await getDocs(collection(db, "posts"));
         setPosts([]); //아래 코드 때문에 삭제해도 변경된 getPosts가 보이지 않으므로 여기서 초기화
+       let postsRef = collection(db, "posts");
+       let postsQuery;
+        
+       if(activeTab === 'my' && user){
+        //나의 글만 필터링
+        postsQuery = query(postsRef, where('uid', '==', user.uid),
+        orderBy("createdAt", "asc"));
+       } else if(activeTab === "all") {
+        //모든 글 보여주기
+        postsQuery = query(postsRef, orderBy("createdAt", "asc"));
+       } else {
+        //카테고리 글 보여주기
+        postsQuery = query(postsRef, where("category", "==", activeTab),
+        orderBy("createdAt", "asc"));
+       }
+       const datas = await getDocs(postsQuery);
         datas?.forEach((doc) => {
             console.log(doc.data(), doc.id);
             const dataObj = { ...doc.data(), id: doc.id };
@@ -49,9 +73,12 @@ export default function PostList({ hasNavigation = true}: PostListProps){ //prof
         }
     };
 
+    console.log(posts)
+
     useEffect(()=> {
         getPosts();
-    }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]) //나 외에 다른 사용자의 글이 있을때마다 게시글 불러오기
 
     return (
         <>
@@ -63,6 +90,12 @@ export default function PostList({ hasNavigation = true}: PostListProps){ //prof
                 <div role="presentation" 
                 onClick={() => setActiveTab("my")}
                 className={activeTab === 'my' ? 'post__navigation--active' : ""}>나의 글</div>
+                {CATEGORIES?.map((category) => (
+                     <div key={category} 
+                     role="presentation" 
+                     onClick={() => setActiveTab(category)}
+                     className={activeTab === category ? 'post__navigation--active' : ""}>{category}</div>
+                ))}
             </div>
         )}
         <div className="post__list">
@@ -72,7 +105,7 @@ export default function PostList({ hasNavigation = true}: PostListProps){ //prof
                         <div className="post__profile-box">
                             <div className="post__profile" />
                             <div className="post__author-name">{post?.email}</div>
-                            <div className="post__date">{post?.createAt}</div>
+                            <div className="post__date">{post?.createdAt}</div>
                         </div>
                         <div className="post__title">{post?.title}</div>
                         <div className="post__text">{post?.summary}</div>
